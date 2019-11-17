@@ -27,7 +27,7 @@ public class Value2Null implements Transform<Group, Group> {
     int fieldCount = schema.getFieldCount();
     for (int i = 0; i < fieldCount; i++) {
       if (targetColNameList.contains(schema.getFieldName(i))) {
-        //If skip index, value fill null.
+        //If you pass an index, the index value is filled with null.
         continue;
       }
       addColValue(newRecord, i, preRecord);

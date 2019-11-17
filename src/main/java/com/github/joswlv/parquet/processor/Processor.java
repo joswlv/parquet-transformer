@@ -9,8 +9,6 @@ import com.github.joswlv.parquet.transform.TransformBuilder;
 import com.github.joswlv.parquet.transform.TransformType;
 import com.github.joswlv.parquet.transform.Value2Null;
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class Processor {
 
@@ -28,8 +26,7 @@ public class Processor {
         .build(IoType.GracefulReader, metaInfo, previousFilePath);
     Value2Null value2Null = (Value2Null) TransformBuilder.build(TransformType.Value2Null, metaInfo);
     GracefulWriter gracefulWriter = (GracefulWriter) IoBuilder
-        .build(IoType.GracefulWriter, metaInfo, previousFilePath + "_" +
-            LocalDateTime.now().format(DateTimeFormatter.BASIC_ISO_DATE));
+        .build(IoType.GracefulWriter, metaInfo, metaInfo.getOriginSourcePath());
 
     gracefulReader
         .getData()

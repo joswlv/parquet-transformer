@@ -4,7 +4,6 @@ import com.github.joswlv.parquet.metadata.ParquetMetaInfo;
 import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
@@ -13,17 +12,12 @@ public class GracefulWriter extends IoProcessor {
 
   private ParquetWriter<Group> writer;
 
-  public GracefulWriter(ParquetMetaInfo metaInfo, String parquetWriteFilePath) {
+  public GracefulWriter(ParquetMetaInfo metaInfo, String sourceDirPath) {
 
-    Path filePath = new Path(parquetWriteFilePath);
+    Path filePath = new Path(sourceDirPath);
     Configuration conf = metaInfo.getConfiguration();
 
     try {
-      DistributedFileSystem dfs = (DistributedFileSystem) DistributedFileSystem
-          .newInstance(conf);
-      if (dfs.exists(filePath)) {
-        dfs.delete(filePath, true);
-      }
 
       GroupWriteSupport.setSchema(metaInfo.getSchema(), conf);
       GroupWriteSupport groupWriteSupport = new GroupWriteSupport();
