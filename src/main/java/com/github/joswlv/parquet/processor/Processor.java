@@ -9,8 +9,12 @@ import com.github.joswlv.parquet.transform.TransformBuilder;
 import com.github.joswlv.parquet.transform.TransformType;
 import com.github.joswlv.parquet.transform.Value2Null;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Processor {
+
+  private Logger log = LoggerFactory.getLogger(this.getClass());
 
   private ParquetMetaInfo metaInfo;
   private String previousFilePath;
@@ -20,18 +24,22 @@ public class Processor {
     this.previousFilePath = previousFilePath;
   }
 
-  public void process() throws IOException {
+  public void process() {
 
-    GracefulReader gracefulReader = (GracefulReader) IoBuilder
+    try (GracefulReader gracefulReader = (GracefulReader) IoBuilder
         .build(IoType.GracefulReader, metaInfo, previousFilePath);
-    Value2Null value2Null = (Value2Null) TransformBuilder.build(TransformType.Value2Null, metaInfo);
-    GracefulWriter gracefulWriter = (GracefulWriter) IoBuilder
-        .build(IoType.GracefulWriter, metaInfo, metaInfo.getOriginSourcePath());
+        GracefulWriter gracefulWriter = (GracefulWriter) IoBuilder
+            .build(IoType.GracefulWriter, metaInfo, previousFilePath)) {
 
-    gracefulReader
-        .getData()
-        .map(value2Null::transform)
-        .forEach(gracefulWriter::write);
+      Value2Null value2Null = (Value2Null) TransformBuilder
+          .build(TransformType.Value2Null, metaInfo);
+
+      gracefulReader
+          .getData()
+          .map(value2Null::transform)
+          .forEach(gracefulWriter::write);
+    } catch (IOException e) {
+      log.error("Process Error !, ", e.getMessage(), e);
+    }
   }
-
 }

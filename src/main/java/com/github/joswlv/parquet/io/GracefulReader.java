@@ -7,29 +7,24 @@ import java.util.Spliterators;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
-import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.io.ColumnIOFactory;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.RecordReader;
-import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class GracefulReader extends IoProcessor {
+public class GracefulReader implements IoProcessor {
 
-  private Configuration conf;
-  private MessageType schema;
-  private ParquetFileReader fileReader;
+  private Logger log = LoggerFactory.getLogger(this.getClass());
+
+  private ParquetReader<Group> fileReader;
 
   private Group group;
 
   public GracefulReader(ParquetMetaInfo metaInfo, String targetParquetFilePath) throws IOException {
-    this.conf = metaInfo.getConfiguration();
-    this.schema = metaInfo.getSchema();
-    this.fileReader = ParquetFileReader.open(conf, new Path(targetParquetFilePath));
+    this.fileReader = ParquetReader.builder(new GroupReadSupport(), new Path(targetParquetFilePath))
+        .withConf(metaInfo.getConfiguration()).build();
   }
 
   public Stream<Group> getData() {
@@ -49,31 +44,19 @@ public class GracefulReader extends IoProcessor {
   }
 
   private boolean hasNextData() {
-    PageReadStore pageReadStore;
     try {
-      if ((pageReadStore = fileReader.readNextRowGroup()) != null) {
-        MessageColumnIO messageColumnIO = new ColumnIOFactory().getColumnIO(schema);
-        RecordReader recordReader = messageColumnIO
-            .getRecordReader(pageReadStore, new GroupRecordConverter(schema));
-
-        if ((group = (Group) recordReader.read()) != null) {
-          return true;
-        }
+      if ((group = fileReader.read()) != null) {
+        return true;
       }
+
     } catch (IOException e) {
-      e.printStackTrace();
+      log.error("record read error!, ", e.getMessage(), e);
     }
     return false;
   }
 
   @Override
-  public void close() {
-    try {
-      if (fileReader != null) {
-        fileReader.close();
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+  public void close() throws IOException {
+    fileReader.close();
   }
 }

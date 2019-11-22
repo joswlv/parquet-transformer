@@ -4,20 +4,27 @@ import com.github.joswlv.parquet.metadata.ParquetMetaInfo;
 import com.github.joswlv.parquet.processor.Processor;
 import com.github.joswlv.parquet.util.ParquetMetaInfoConverter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public class Runner {
+
+  private Logger log = LoggerFactory.getLogger(this.getClass());
+  private ExecutorService service;
 
   public void run(String[] args) {
     ParquetMetaInfo metaInfo = ParquetMetaInfoConverter.build(args);
-    ExecutorService service = Executors
+    service = Executors
         .newFixedThreadPool(metaInfo.getConcurrent(),
             new ThreadFactoryBuilder().setNameFormat("parquet-rewrite-thread-%d").build());
     CompletionService<String> cs = new ExecutorCompletionService(service);
@@ -32,14 +39,26 @@ public class Runner {
       });
     }
     service.shutdown();
+
     try {
       for (int i = 0; i < previousFileList.size(); i++) {
-        log.info("{} Processiong Complete!", cs.take().get());
+        log.info("{} Processing Complete!", cs.take().get());
       }
     } catch (InterruptedException | ExecutionException e) {
       e.printStackTrace();
       service.shutdown();
       throw new RuntimeException(e.getCause());
+    }
+
+    try (FileSystem dfs = DistributedFileSystem.newInstance(metaInfo.getConfiguration())) {
+      for (String previousFile : previousFileList) {
+        if (dfs.delete(new Path(previousFile), true)) {
+          log.info("{} - rename ing...", previousFile);
+          dfs.rename(new Path(previousFile + "_tmp"), new Path(previousFile));
+        }
+      }
+    } catch (IOException e) {
+      log.error("file rename Error! , ", e.getMessage(), e);
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.github.joswlv.parquet.io;
 
-public abstract class IoProcessor {
+import java.io.Closeable;
 
-  public abstract void close();
+public interface IoProcessor extends Closeable {
+
 }
